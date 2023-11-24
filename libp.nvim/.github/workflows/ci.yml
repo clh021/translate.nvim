@@ -1,0 +1,46 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+    name: Test
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Neovim
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            wget -q https://github.com/neovim/neovim/releases/download/nightly/nvim-linux64.deb -O /tmp/nvim.deb
+            sudo dpkg -i /tmp/nvim.deb
+          else
+            choco install neovim --pre
+            echo "C:/tools/neovim/nvim-win64/bin" >> $GITHUB_PATH
+          fi
+      - name: Install dependencies
+        run: |
+          export NVIM_PACKAGE_DIR=$HOME/.local/share/nvim/site/pack/vendor/start
+          mkdir -p $NVIM_PACKAGE_DIR
+          git clone --depth 1 https://github.com/nvim-lua/plenary.nvim $NVIM_PACKAGE_DIR/plenary.nvim
+          ln -s $(pwd) $NVIM_PACKAGE_DIR
+
+      - name: Run tests
+        run: |
+          nvim --version
+          git config --global user.name "foo"
+          git config --global user.email "foo@bar.com"
+          make test
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: JohnnyMorganz/stylua-action@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: latest
+          args: --color always --check ./lua
